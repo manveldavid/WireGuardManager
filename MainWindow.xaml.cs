@@ -183,24 +183,7 @@ namespace WireguardApp
             MainLoop = ReadStreamPeriodicallyAsync(
                 TimeSpan.FromSeconds(Convert.ToDouble(DeSerializeData["INTERVAL"])));
         }
-        public void ConnectToServer()
-        {
-            if (!commandGo)
-            {
-                toConsole = false;
-                ProcStreamWriter.WriteLine("ssh " + DeSerializeData["serverUser"] + "@" + DeSerializeData["serverIp"]);
-                ServerData.Ip = DeSerializeData["StandartServerIp"];
-                ServerData.SetPosition();
-                commandGo = true;
-                endProcess = false;
-            }
-            else if (commandGo)
-            {
-                nextCommand = "App.GetInWG";
-                commandGo = false;
-            }
-        }
-
+        
         public async Task ReadStreamPeriodicallyAsync(
         TimeSpan interval)
         {
@@ -227,17 +210,8 @@ namespace WireguardApp
                     case "App.ConnectToServer":
                         ConnectToServer();
                         break;
-                    case "App.GetInWG":
-                        GetInWG();
-                        break;
-                    case "App.GetUsers":
-                        GetUsers(); 
-                        break;
                     case "App.SetPrvPubK":
                         SetPrvPubK();
-                        break;
-                    case "App.TakeUsersInList":
-                        TakeUsersInList();
                         break;
                     case "App.GetWg0Conf":
                         GetWg0Conf();
@@ -281,52 +255,40 @@ namespace WireguardApp
             }
         }
 
-        public void GetInWG()
+        public void ConnectToServer()
         {
             if (!commandGo)
             {
-                ProcStreamWriter.WriteLine("cd /etc/wireguard/");
-                commandGo = true;
-            }
-            else if (commandGo)
-            {
-                MainTextBox.Text += "\nConnecting to server " + DeSerializeData["serverIp"] + " ...";
-                ProcStreamWriter.WriteLine();
-                nextCommand = "App.GetUsers";
-                commandGo = false;
-            }
-        }
-        
-        public void GetUsers()
-        {
-            if (!commandGo)
-            {
-                ProcStreamWriter.WriteLine("ls");
+                MainTextBox.Text += "\nConnect to WireGuard server ...";
+                toConsole = false;
+                ServerData.Ip = DeSerializeData["StandartServerIp"];
+                ServerData.SetPosition();
                 lastCommandResult = "";
                 commandGo = true;
+                endProcess = false;
+
+                ProcStreamWriter.WriteLine("ssh " + DeSerializeData["serverUser"] + "@" + DeSerializeData["serverIp"]);
+                ProcStreamWriter.WriteLine("cd /etc/wireguard/");
+                ProcStreamWriter.WriteLine("ls");
             }
             if (commandGo && lastCommandResult.Contains("wg0.conf"))
             {
-                nextCommand = "App.TakeUsersInList";
                 commandGo = false;
-            }
-        }
-        public void TakeUsersInList()
-        {
-            UserList.Clear();
-            var UsersInStr = lastCommandResult.Split('\n');
-            foreach (string user in UsersInStr)
-            {
-                int indexOf_ = user.IndexOf('_');
-                if (indexOf_ != -1&&user!="")
+                UserList.Clear();
+                var UsersInStr = lastCommandResult.Split('\n');
+                foreach (string user in UsersInStr)
                 {
-                    string newName = user.Substring(0, indexOf_);
-                    if (!UserList.Select(i => i.Name).Contains(newName))
-                        UserList.Add(new WGUser(newName));
+                    int indexOf_ = user.IndexOf('_');
+                    if (indexOf_ != -1 && user != "")
+                    {
+                        string newName = user.Substring(0, indexOf_);
+                        if (!UserList.Select(i => i.Name).Contains(newName))
+                            UserList.Add(new WGUser(newName));
+                    }
                 }
+                nextCommand = "App.SetPrvPubK";
+                CurUser = UserList[0].Name;
             }
-            nextCommand = "App.SetPrvPubK";
-            CurUser = UserList[0].Name;
         }
         public void SetPrvPubK()
         {
@@ -382,7 +344,7 @@ namespace WireguardApp
                 commandGo = true;
                 lastCommandResult = "";
             }
-            if (commandGo && lastCommandResult != "")
+            if (commandGo && lastCommandResult.Contains("Interface"))
             {
                 nextCommand = "App.SetUsers";
                 commandGo = false;
@@ -457,7 +419,7 @@ namespace WireguardApp
             {
                 MainTextBox.Text += "\n\n *New user: " + newUserName + " has been addied\n\n";
                 NewUserTextBox.Text = "";
-                nextCommand = "App.GetUsers";
+                nextCommand = "App.ConnectToServer";
                 commandGo = false;
                 toConsole = true;
             }
@@ -543,7 +505,7 @@ namespace WireguardApp
                 ProcStreamWriter.WriteLine("rm " + user + "_PrvK");
                 ProcStreamWriter.WriteLine("rm " + user + "_PubK");
             }
-            nextCommand = "App.GetUsers";
+            nextCommand = "App.ConnectToServer";
             commandGo = false;
         }
         public void GetUsersAccesses()
